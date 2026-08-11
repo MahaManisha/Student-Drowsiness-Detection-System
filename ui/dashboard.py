@@ -497,6 +497,7 @@ def run_dashboard():
             pitch_adj = 0.0
             yaw_adj = 0.0
             pose_state_adj = "No Face"
+            calib_progress = 0.0
 
         # 8. Attention Scorer Calculation
         attn_score = attention_scorer.calculate_score(
@@ -568,7 +569,7 @@ def run_dashboard():
             )
 
         frame_rgb = cv2.cvtColor(annotated_frame, cv2.COLOR_BGR2RGB)
-        video_placeholder.image(frame_rgb, channels="RGB", use_column_width=True)
+        video_placeholder.image(frame_rgb, channels="RGB", use_container_width=True)
 
         # Update Metrics Column Cards
         score_metric.metric("Attention Score", f"{attn_score:.1f} / 100")
@@ -620,7 +621,7 @@ def run_dashboard():
                 file_name=f"session_event_log_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
                 mime="text/csv",
                 use_container_width=True,
-                key="live_event_log_download_btn",
+                key=f"live_event_log_download_btn_{time.time_ns()}",
             )
 
         # Small sleep to yield execution thread

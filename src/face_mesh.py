@@ -6,6 +6,11 @@ and extracts normalized 3D and pixel 2D facial landmarks.
 import cv2
 import mediapipe as mp
 import numpy as np
+import os
+import time
+import urllib.request
+from mediapipe.tasks import python
+from mediapipe.tasks.python import vision
 from utils.logger import logger
 
 
@@ -20,14 +25,26 @@ class FaceMeshDetector:
         min_detection_confidence: float = 0.5,
         min_tracking_confidence: float = 0.5,
     ):
-        self.mp_face_mesh = mp.solutions.face_mesh
-        self.face_mesh = self.mp_face_mesh.FaceMesh(
-            static_image_mode=static_image_mode,
-            max_num_faces=max_num_faces,
-            refine_landmarks=refine_landmarks,
-            min_detection_confidence=min_detection_confidence,
+        model_path = "face_landmarker.task"
+        if not os.path.exists(model_path):
+            logger.info("Downloading FaceLandmarker model...")
+            url = "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task"
+            urllib.request.urlretrieve(url, model_path)
+            
+        base_options = python.BaseOptions(model_asset_path=model_path)
+        self.running_mode = vision.RunningMode.IMAGE if static_image_mode else vision.RunningMode.VIDEO
+        
+        options = vision.FaceLandmarkerOptions(
+            base_options=base_options,
+            running_mode=self.running_mode,
+            num_faces=max_num_faces,
+            min_face_detection_confidence=min_detection_confidence,
             min_tracking_confidence=min_tracking_confidence,
-        )
+            output_face_blendshapes=False,
+            output_facial_transformation_matrixes=False)
+            
+        self.detector = vision.FaceLandmarker.create_from_options(options)
+        self.last_timestamp_ms = 0
 
     def process_frame(self, frame: np.ndarray) -> dict:
         """
@@ -58,29 +75,38 @@ class FaceMeshDetector:
         rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
         try:
-            mesh_results = self.face_mesh.process(rgb_frame)
-            if not mesh_results.multi_face_landmarks:
+            mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb_frame)
+            
+            if self.running_mode == vision.RunningMode.VIDEO:
+                current_time_ms = int(time.time() * 1000)
+                if current_time_ms <= self.last_timestamp_ms:
+                    current_time_ms = self.last_timestamp_ms + 1
+                self.last_timestamp_ms = current_time_ms
+                mesh_results = self.detector.detect_for_video(mp_image, current_time_ms)
+            else:
+                mesh_results = self.detector.detect(mp_image)
+                
+            if not mesh_results.face_landmarks:
                 return result
 
-            face_count = len(mesh_results.multi_face_landmarks)
+            face_count = len(mesh_results.face_landmarks)
             result["face_count"] = face_count
             result["multiple_faces"] = face_count > 1
 
             # Select largest face by bounding box area
-            largest_face = None
             max_area = -1
             best_bbox = None
             best_norm_landmarks = None
             best_pixel_landmarks = None
 
-            for face_landmarks in mesh_results.multi_face_landmarks:
+            for face_landmarks in mesh_results.face_landmarks:
                 # Convert landmarks to numpy array
                 norm_coords = np.array(
-                    [[lm.x, lm.y, lm.z] for lm in face_landmarks.landmark],
+                    [[lm.x, lm.y, lm.z] for lm in face_landmarks],
                     dtype=np.float64,
                 )
                 pixel_coords = np.array(
-                    [[lm.x * w, lm.y * h, lm.z * w] for lm in face_landmarks.landmark],
+                    [[lm.x * w, lm.y * h, lm.z * w] for lm in face_landmarks],
                     dtype=np.float64,
                 )
 
@@ -109,4 +135,4 @@ class FaceMeshDetector:
 
     def close(self):
         """Release FaceMesh resources."""
-        self.face_mesh.close()
+        self.detector.close()
