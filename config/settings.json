@@ -1,0 +1,31 @@
+{
+  "thresholds": {
+    "default_ear_threshold": 0.20,
+    "default_mar_threshold": 0.40,
+    "blink_ear_threshold": 0.14,
+    "pitch_up_threshold": 15.0,
+    "pitch_down_threshold": -15.0,
+    "yaw_left_threshold": -15.0,
+    "yaw_right_threshold": 15.0,
+    "roll_threshold": 20.0
+  },
+  "temporal": {
+    "buffer_size": 90,
+    "drowsy_duration_sec": 2.0,
+    "distraction_duration_sec": 2.0,
+    "yawn_duration_sec": 0.8,
+    "calibration_duration_sec": 10.0,
+    "target_fps": 30
+  },
+  "low_light": {
+    "luminance_threshold": 45.0,
+    "clahe_clip_limit": 2.5,
+    "clahe_grid_size": [8, 8]
+  },
+  "paths": {
+    "reports_dir": "reports",
+    "screenshots_dir": "reports/screenshots",
+    "logs_dir": "logs",
+    "assets_dir": "assets"
+  }
+}
