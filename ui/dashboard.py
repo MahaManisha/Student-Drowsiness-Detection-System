@@ -291,6 +291,7 @@ def run_dashboard():
 
         st.markdown("### 📜 Recent Event Log")
         event_log_placeholder = st.empty()
+        event_log_download_placeholder = st.empty()
 
     # Handle Video Capture Input
     cap = None
@@ -430,6 +431,16 @@ def run_dashboard():
                 mesh_data["landmarks_pixel"], features["avg_ear"], active_ear_thresh
             )
 
+            # Log Yawn Events independently to guarantee entry in event_log
+            if distract_res.get("yawn_event_triggered"):
+                st.session_state.event_log.append(
+                    {
+                        "Time": datetime.datetime.now().strftime("%H:%M:%S"),
+                        "Event": "🥱 YAWN DETECTED",
+                        "Details": f"MAR: {features['mar']:.3f} (> {active_mar_thresh:.3f})",
+                    }
+                )
+
             # Determine State Priority (DROWSY > DISTRACTED > ALERT)
             if drowsy_res["is_drowsy"]:
                 current_state = "DROWSY"
@@ -441,7 +452,7 @@ def run_dashboard():
                         {
                             "Time": datetime.datetime.now().strftime("%H:%M:%S"),
                             "Event": "🚨 DROWSINESS DETECTED",
-                            "Details": f"EAR: {features['avg_ear']:.3f} (< {active_ear_thresh})",
+                            "Details": f"EAR: {features['avg_ear']:.3f} (< {active_ear_thresh:.3f})",
                         }
                     )
             elif distract_res["is_distracted"]:
@@ -453,16 +464,6 @@ def run_dashboard():
                             "Time": datetime.datetime.now().strftime("%H:%M:%S"),
                             "Event": "⚠️ DISTRACTED",
                             "Details": distract_res["distraction_reason"],
-                        }
-                    )
-            elif distract_res["is_yawning"]:
-                current_state = "ALERT"
-                if distract_res.get("yawn_event_triggered"):
-                    st.session_state.event_log.append(
-                        {
-                            "Time": datetime.datetime.now().strftime("%H:%M:%S"),
-                            "Event": "🥱 YAWN DETECTED",
-                            "Details": f"MAR: {features['mar']:.3f} (> {active_mar_thresh})",
                         }
                     )
             else:
@@ -604,12 +605,22 @@ def run_dashboard():
             )
             chart_placeholder.line_chart(chart_df, height=180)
 
-        # Update Recent Event Log Table
+        # Update Recent Event Log Table & Live CSV Download Button
         if st.session_state.event_log:
+            event_df = pd.DataFrame(st.session_state.event_log)
             event_log_placeholder.dataframe(
-                pd.DataFrame(st.session_state.event_log[-5:]),
+                event_df.tail(8),
                 use_container_width=True,
                 hide_index=True,
+            )
+            event_csv_data = event_df.to_csv(index=False).encode("utf-8")
+            event_log_download_placeholder.download_button(
+                label="📥 Download Session Event Log (CSV)",
+                data=event_csv_data,
+                file_name=f"session_event_log_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                mime="text/csv",
+                use_container_width=True,
+                key="live_event_log_download_btn",
             )
 
         # Small sleep to yield execution thread
@@ -643,14 +654,29 @@ def run_dashboard():
     for rec in summary["recommendations"]:
         st.info(rec)
 
-    # CSV Report Download Button
-    csv_df = exporter.get_csv_dataframe()
-    if not csv_df.empty:
-        csv_data = csv_df.to_csv(index=False).encode("utf-8")
-        st.download_button(
-            label="📥 Download Detailed CSV Telemetry Report",
-            data=csv_data,
-            file_name=exporter.csv_filename,
-            mime="text/csv",
-            use_container_width=True,
-        )
+    # CSV Download Buttons (Frame Telemetry & Event Log)
+    col_dl1, col_dl2 = st.columns(2)
+    with col_dl1:
+        csv_df = exporter.get_csv_dataframe()
+        if not csv_df.empty:
+            csv_data = csv_df.to_csv(index=False).encode("utf-8")
+            st.download_button(
+                label="📥 Download Detailed CSV Telemetry Report",
+                data=csv_data,
+                file_name=exporter.csv_filename,
+                mime="text/csv",
+                use_container_width=True,
+                key="summary_telemetry_csv_btn",
+            )
+    with col_dl2:
+        if st.session_state.event_log:
+            event_df = pd.DataFrame(st.session_state.event_log)
+            event_csv_data = event_df.to_csv(index=False).encode("utf-8")
+            st.download_button(
+                label="📜 Download Session Event Log (CSV)",
+                data=event_csv_data,
+                file_name=f"session_event_log_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                mime="text/csv",
+                use_container_width=True,
+                key="summary_event_log_csv_btn",
+            )
