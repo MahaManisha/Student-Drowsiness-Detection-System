@@ -6,8 +6,16 @@ compute RMS, and detect vocal activity via dynamic noise-floor calculations.
 import time
 import threading
 import numpy as np
-import sounddevice as sd
+
+try:
+    import sounddevice as sd
+    HAS_SOUNDDEVICE = True
+except (ImportError, OSError):
+    sd = None
+    HAS_SOUNDDEVICE = False
+
 from utils.logger import logger
+
 
 
 class MicDetector:
@@ -54,6 +62,10 @@ class MicDetector:
 
     def start(self):
         """Start background recording thread."""
+        if not HAS_SOUNDDEVICE or sd is None:
+            logger.warning("PortAudio or sounddevice not available. Mic detection disabled.")
+            return
+
         if self.is_running:
             return
         
@@ -64,9 +76,13 @@ class MicDetector:
 
     def _run_stream(self):
         """Active recording loop within background thread."""
+        if not HAS_SOUNDDEVICE or sd is None:
+            self.is_running = False
+            return
         try:
             # Query standard input device
             device_info = sd.query_devices(kind='input')
+
             if not device_info:
                 logger.error("No input audio devices found.")
                 self.is_running = False
