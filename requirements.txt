@@ -1,6 +1,6 @@
-opencv-python
-mediapipe<1.0.0
-numpy
 streamlit
+opencv-python-headless
+mediapipe==0.10.21
+numpy
 pandas
 scipy

@@ -25,11 +25,14 @@ class FaceMeshDetector:
         min_detection_confidence: float = 0.5,
         min_tracking_confidence: float = 0.5,
     ):
-        model_path = "face_landmarker.task"
+        model_path = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "face_landmarker.task"
+        )
         if not os.path.exists(model_path):
             logger.info("Downloading FaceLandmarker model...")
             url = "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task"
             urllib.request.urlretrieve(url, model_path)
+
             
         base_options = python.BaseOptions(model_asset_path=model_path)
         self.running_mode = vision.RunningMode.IMAGE if static_image_mode else vision.RunningMode.VIDEO
