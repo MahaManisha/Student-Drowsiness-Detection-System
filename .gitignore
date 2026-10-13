@@ -18,5 +18,7 @@ logs/*.log
 .vscode/
 .idea/
 .kilocode/
-.DS_Store
-Thumbs.db
+# Reports & test artifacts
+reports/screenshots/*.jpg
+reports/session_report_*.csv
+
